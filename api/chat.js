@@ -23,7 +23,6 @@ export default async function handler(req, res) {
     let systemPrompt = '';
 
     if (pageType === 'career') {
-      // Career guide focused - for career-roadmaps.html
       systemPrompt = `You are the Vertechions AI Career Guide. You help beginners choose and navigate tech career paths.
 
 Vertechions offers 12+ detailed FREE career roadmaps:
@@ -59,7 +58,6 @@ Your role:
 
 Keep responses concise, friendly, and actionable. Focus on being genuinely helpful for career development.`;
     } else {
-      // Business/service focused - for homepage and service pages
       systemPrompt = `You are the Vertechions AI Assistant. You help visitors understand Vertechions' business services.
 
 About Vertechions:
@@ -117,43 +115,40 @@ Your role:
 - Provide information about pricing and project timelines when asked
 - Direct technical career questions to our career roadmaps page
 - Be professional, helpful, and encouraging
-- If someone asks about career advice or learning tech, mention: "For career guidance, check out our free career roadmaps at career-roadmaps.html - but I'm here to help with our business services!"
+- If someone asks about career advice or learning tech, mention: "For career guidance, check out our free career roadmaps - but I'm here to help with our business services!"
 
 Keep responses friendly, professional, and focused on how Vertechions can help businesses grow.`;
     }
 
-    // Call Claude API
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages: [
-          {
-            role: 'user',
-            content: message
-          }
-        ]
-      })
-    });
+    // Call Google Gemini API (FREE!)
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: `${systemPrompt}\n\nUser: ${message}`
+            }]
+          }]
+        })
+      }
+    );
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('Claude API error:', data);
+      console.error('Gemini API error:', data);
       return res.status(500).json({ 
         error: 'Failed to get AI response',
         response: 'Sorry, I encountered an error. Please try again!'
       });
     }
 
-    const aiResponse = data.content[0].text;
+    const aiResponse = data.candidates[0].content.parts[0].text;
 
     return res.status(200).json({ 
       response: aiResponse 
