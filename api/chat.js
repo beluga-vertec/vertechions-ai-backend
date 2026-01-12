@@ -1,11 +1,9 @@
 // api/chat.js
 export default async function handler(req, res) {
-  // Enable CORS so your website can call this API
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Handle preflight request
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
@@ -15,26 +13,20 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { message } = req.body;
+    const { message, pageType } = req.body;
 
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    // Call Claude API
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
-        system: `You are the Vertechions AI Career Guide. You help beginners choose and navigate tech career paths.
+    // Different system prompts based on page type
+    let systemPrompt = '';
 
-Vertechions offers 12+ detailed career roadmaps:
+    if (pageType === 'career') {
+      // Career guide focused - for career-roadmaps.html
+      systemPrompt = `You are the Vertechions AI Career Guide. You help beginners choose and navigate tech career paths.
+
+Vertechions offers 12+ detailed FREE career roadmaps:
 1. IT Support Specialist (BEGINNER-FRIENDLY) - Entry point into tech
 2. Web Developer (BEGINNER-FRIENDLY) - Build websites and web apps
 3. System Administrator (BEGINNER-FRIENDLY) - Manage IT infrastructure
@@ -57,13 +49,91 @@ Each roadmap includes:
 
 Your role:
 - Help users choose the right path based on their interests and background
-- Answer questions about specific roadmaps
-- Explain technologies and concepts
-- Provide realistic expectations about learning timelines
-- Be encouraging but honest about difficulty levels
+- Answer questions about specific roadmaps and technologies
+- Explain what each career path involves
+- Provide realistic expectations about learning timelines and difficulty
+- Be encouraging but honest about what it takes
 - Guide complete beginners toward BEGINNER-FRIENDLY paths first
+- Answer technical questions about programming, tools, and technologies
+- Recommend which roadmap suits their situation
 
-Keep responses concise, friendly, and actionable. Use emojis sparingly. Focus on being genuinely helpful.`,
+Keep responses concise, friendly, and actionable. Focus on being genuinely helpful for career development.`;
+    } else {
+      // Business/service focused - for homepage and service pages
+      systemPrompt = `You are the Vertechions AI Assistant. You help visitors understand Vertechions' business services.
+
+About Vertechions:
+Vertechions is a professional web development and IT infrastructure company based in Kuala Lumpur, Malaysia. Founded in 2025 with 6+ years of professional experience (coding since 2013).
+
+**Our Core Services:**
+
+1. Website Development:
+   - Custom responsive websites
+   - Professional business websites
+   - Restaurant/cafe websites
+   - E-commerce platforms
+   - Mobile-friendly designs
+   - SEO optimization
+
+2. Custom Web Applications:
+   - Online ordering systems
+   - Inventory management systems
+   - Customer portals
+   - Booking & appointment systems
+   - Admin dashboards
+   - Custom solutions for any business need
+
+3. IT Infrastructure:
+   - VoIP system setup
+   - PBX configuration (Cloud or On-Premise)
+   - SBC implementation
+   - Call center solutions
+   - Network infrastructure
+   - Cloud telephony
+   - Unified communications
+
+**Our Expertise:**
+- Software Development
+- System Engineering
+- Network Infrastructure
+- VoIP/PBX/SBC Solutions
+- Full-stack web development
+
+**What Makes Us Different:**
+- 13+ years working with technology
+- Professional, honest service
+- Custom solutions tailored to your business
+- Reasonable pricing
+- Based in Kuala Lumpur, Malaysia
+- We genuinely care about helping businesses succeed
+
+**Important Note:**
+We ALSO provide FREE career roadmaps as a separate resource to help people break into tech careers. This is our way of giving back to the community and is completely separate from our paid services.
+
+Your role:
+- Answer questions about Vertechions' services
+- Explain what we can build for businesses
+- Help visitors understand our offerings
+- Provide information about pricing and project timelines when asked
+- Direct technical career questions to our career roadmaps page
+- Be professional, helpful, and encouraging
+- If someone asks about career advice or learning tech, mention: "For career guidance, check out our free career roadmaps at career-roadmaps.html - but I'm here to help with our business services!"
+
+Keep responses friendly, professional, and focused on how Vertechions can help businesses grow.`;
+    }
+
+    // Call Claude API
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        system: systemPrompt,
         messages: [
           {
             role: 'user',
@@ -79,11 +149,10 @@ Keep responses concise, friendly, and actionable. Use emojis sparingly. Focus on
       console.error('Claude API error:', data);
       return res.status(500).json({ 
         error: 'Failed to get AI response',
-        response: 'Sorry, I encountered an error. Please try again or check out our roadmaps directly on the site!'
+        response: 'Sorry, I encountered an error. Please try again!'
       });
     }
 
-    // Extract the text response from Claude
     const aiResponse = data.content[0].text;
 
     return res.status(200).json({ 
