@@ -4,10 +4,3 @@
   "type": "module",
   "dependencies": {}
 }
-```
-
-**File 4: `.gitignore`**
-```
-node_modules
-.env
-.vercel
