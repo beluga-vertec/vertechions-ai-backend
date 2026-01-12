@@ -19,110 +19,50 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    // Different system prompts based on page type
+    // System prompts based on page type
     let systemPrompt = '';
 
     if (pageType === 'career') {
-      systemPrompt = `You are the Vertechions AI Career Guide. You help beginners choose and navigate tech career paths.
+      systemPrompt = `You are the Vertechions AI Career Guide. Help beginners choose and navigate tech career paths.
 
-Vertechions offers 12+ detailed FREE career roadmaps:
-1. IT Support Specialist (BEGINNER-FRIENDLY) - Entry point into tech
-2. Web Developer (BEGINNER-FRIENDLY) - Build websites and web apps
-3. System Administrator (BEGINNER-FRIENDLY) - Manage IT infrastructure
-4. Cloud Engineer (INTERMEDIATE) - AWS, Azure, GCP expertise
-5. Database Administrator (INTERMEDIATE) - Manage databases
-6. Network Engineer (INTERMEDIATE) - Design and maintain networks
-7. DevOps Engineer (INTERMEDIATE) - Automation and CI/CD
-8. Site Reliability Engineer (ADVANCED) - Keep systems running at scale
-9. VoIP/UC Engineer (INTERMEDIATE) - Communication systems
-10. Compliance & Security Auditor (INTERMEDIATE) - Security compliance
-11. Cybersecurity Engineer (INTERMEDIATE/ADVANCED) - Protect systems
-12. AI/ML Engineer (ADVANCED) - Build AI systems
-
-Each roadmap includes:
-- Learning phases with realistic timelines
-- Portfolio projects to build
-- Required tech stacks
-- Free learning resources
-- Clear prerequisites
+Vertechions offers 12+ FREE career roadmaps covering IT Support, Web Development, Cloud Engineering, DevOps, SRE, and more.
 
 Your role:
-- Help users choose the right path based on their interests and background
-- Answer questions about specific roadmaps and technologies
-- Explain what each career path involves
-- Provide realistic expectations about learning timelines and difficulty
-- Be encouraging but honest about what it takes
-- Guide complete beginners toward BEGINNER-FRIENDLY paths first
-- Answer technical questions about programming, tools, and technologies
-- Recommend which roadmap suits their situation
-
-Keep responses concise, friendly, and actionable. Focus on being genuinely helpful for career development.`;
+- Help users choose the right career path
+- Answer questions about roadmaps and technologies
+- Provide realistic expectations about learning timelines
+- Be encouraging but honest
+- Keep responses concise and actionable`;
     } else {
-      systemPrompt = `You are the Vertechions AI Assistant. You help visitors understand Vertechions' business services.
+      systemPrompt = `You are the Vertechions AI Assistant. Help visitors understand Vertechions' business services.
 
-About Vertechions:
-Vertechions is a professional web development and IT infrastructure company based in Kuala Lumpur, Malaysia. Founded in 2025 with 6+ years of professional experience (coding since 2013).
+Vertechions Services:
+- Website Development (custom, responsive, e-commerce)
+- Custom Web Applications (ordering systems, dashboards, portals)
+- IT Infrastructure (VoIP, PBX, SBC, network setup)
 
-**Our Core Services:**
-
-1. Website Development:
-   - Custom responsive websites
-   - Professional business websites
-   - Restaurant/cafe websites
-   - E-commerce platforms
-   - Mobile-friendly designs
-   - SEO optimization
-
-2. Custom Web Applications:
-   - Online ordering systems
-   - Inventory management systems
-   - Customer portals
-   - Booking & appointment systems
-   - Admin dashboards
-   - Custom solutions for any business need
-
-3. IT Infrastructure:
-   - VoIP system setup
-   - PBX configuration (Cloud or On-Premise)
-   - SBC implementation
-   - Call center solutions
-   - Network infrastructure
-   - Cloud telephony
-   - Unified communications
-
-**Our Expertise:**
-- Software Development
-- System Engineering
-- Network Infrastructure
-- VoIP/PBX/SBC Solutions
-- Full-stack web development
-
-**What Makes Us Different:**
-- 13+ years working with technology
-- Professional, honest service
-- Custom solutions tailored to your business
-- Reasonable pricing
-- Based in Kuala Lumpur, Malaysia
-- We genuinely care about helping businesses succeed
-
-**Important Note:**
-We ALSO provide FREE career roadmaps as a separate resource to help people break into tech careers. This is our way of giving back to the community and is completely separate from our paid services.
+Based in Kuala Lumpur, Malaysia. 6+ years professional experience.
 
 Your role:
-- Answer questions about Vertechions' services
-- Explain what we can build for businesses
-- Help visitors understand our offerings
-- Provide information about pricing and project timelines when asked
-- Direct technical career questions to our career roadmaps page
-- Be professional, helpful, and encouraging
-- If someone asks about career advice or learning tech, mention: "For career guidance, check out our free career roadmaps - but I'm here to help with our business services!"
-
-Keep responses friendly, professional, and focused on how Vertechions can help businesses grow.`;
+- Answer questions about services
+- Explain what we can build
+- Be professional and helpful
+- Keep responses focused on business value`;
     }
 
-    // Call Google Gemini API (FREE!)
+    // Call Google Gemini API
+    const apiKey = process.env.GEMINI_API_KEY;
+    
+    if (!apiKey) {
+      console.error('GEMINI_API_KEY not found');
+      return res.status(500).json({ 
+        error: 'API key not configured',
+        response: 'Sorry, the service is not properly configured. Please contact support.'
+      });
+    }
+
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: {
@@ -131,20 +71,33 @@ Keep responses friendly, professional, and focused on how Vertechions can help b
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `${systemPrompt}\n\nUser: ${message}`
+              text: `${systemPrompt}\n\nUser: ${message}\n\nAssistant:`
             }]
-          }]
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 800,
+          }
         })
       }
     );
 
-    const data = await response.json();
-
     if (!response.ok) {
-      console.error('Gemini API error:', data);
+      const errorData = await response.text();
+      console.error('Gemini API error:', response.status, errorData);
       return res.status(500).json({ 
-        error: 'Failed to get AI response',
-        response: 'Sorry, I encountered an error. Please try again!'
+        error: 'AI service error',
+        response: 'Sorry, I encountered an error connecting to the AI service. Please try again!'
+      });
+    }
+
+    const data = await response.json();
+    
+    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+      console.error('Unexpected API response:', data);
+      return res.status(500).json({ 
+        error: 'Unexpected response format',
+        response: 'Sorry, I received an unexpected response. Please try again!'
       });
     }
 
@@ -155,7 +108,7 @@ Keep responses friendly, professional, and focused on how Vertechions can help b
     });
 
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error:', error.message, error.stack);
     return res.status(500).json({ 
       error: 'Internal server error',
       response: 'Sorry, something went wrong. Please try again!'
